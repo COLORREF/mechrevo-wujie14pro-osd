@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Package Name="Fn 热键 OSD" Manufacturer="YaoOsd" Version="$(var.ProductVersion)"
+           UpgradeCode="{307A6A68-6035-4C27-A7A7-5A5F4EE62BE8}" Scope="perUser"
+           Language="2052" Codepage="936" InstallerVersion="500">
+    <MediaTemplate EmbedCab="yes" CompressionLevel="high" />
+    <MajorUpgrade Schedule="afterInstallInitialize" AllowSameVersionUpgrades="yes"
+                  DowngradeErrorMessage="已安装更新版本的 [ProductName]。" />
+
+    <Property Id="ARPNOMODIFY" Value="1" />
+    <Property Id="INSTALLPARENT" Secure="yes" />
+    <Property Id="AUTOSTART" Secure="yes" Value="1" />
+    <Property Id="PREVIOUSINSTALLPARENT">
+      <RegistrySearch Id="SearchInstallParent" Root="HKCU" Key="Software\YaoOsd\Installer"
+                      Name="InstallParent" Type="raw" Bitness="always64" />
+    </Property>
+    <SetProperty Id="INSTALLPARENT" Value="[PREVIOUSINSTALLPARENT]" Before="CostFinalize"
+                 Sequence="both" Condition="PREVIOUSINSTALLPARENT" />
+    <SetProperty Id="ARPINSTALLLOCATION" Value="[AppFolder]" After="CostFinalize" Sequence="execute" />
+
+    <StandardDirectory Id="LocalAppDataFolder">
+      <Directory Id="INSTALLPARENT" Name="Programs">
+        <Directory Id="AppFolder" Name="YaoOsd">
+          <Component Id="ApplicationFiles" Guid="{93DFF551-562A-4F0C-BF74-95E6934586B5}">
+            <File Id="OsdExecutable" Source="$(var.AppExe)">
+              <Shortcut Id="StartMenuShortcut" Directory="ProgramMenuFolder" Name="Fn 热键 OSD"
+                        WorkingDirectory="AppFolder" Advertise="no" />
+            </File>
+            <RegistryValue Root="HKCU" Key="Software\YaoOsd\Installer" Name="InstallParent"
+                           Type="string" Value="[INSTALLPARENT]" KeyPath="yes" />
+            <RemoveFolder Id="RemoveEmptyAppFolder" On="uninstall" />
+            <RemoveRegistryValue Root="HKCU" Key="Software\Microsoft\Windows\CurrentVersion\Run"
+                                 Name="YaoOsd" />
+          </Component>
+        </Directory>
+      </Directory>
+    </StandardDirectory>
+    <StandardDirectory Id="ProgramMenuFolder" />
+    <DirectoryRef Id="AppFolder">
+      <Component Id="StartupEntry" Guid="{F4ACD77C-BBC7-4A94-89B3-C969810D0798}" Condition="AUTOSTART = &quot;1&quot;">
+        <RegistryValue Root="HKCU" Key="Software\Microsoft\Windows\CurrentVersion\Run"
+                       Name="YaoOsd" Type="string" Value="&quot;[#OsdExecutable]&quot;" KeyPath="yes" />
+      </Component>
+    </DirectoryRef>
+    <Feature Id="Main" Title="Fn 热键 OSD">
+      <ComponentRef Id="ApplicationFiles" />
+      <ComponentRef Id="StartupEntry" />
+    </Feature>
+
+    <Binary Id="FolderCheck" SourceFile="$(var.FolderCheckDll)" />
+    <CustomAction Id="CheckInstallFolder" BinaryRef="FolderCheck" DllEntry="CheckInstallFolder"
+                  Execute="immediate" Return="check" />
+    <InstallExecuteSequence>
+      <Custom Action="CheckInstallFolder" Before="InstallInitialize" Condition="NOT Installed" />
+    </InstallExecuteSequence>
+
+    <Property Id="WIXUI_INSTALLDIR" Value="INSTALLPARENT" />
+    <UIRef Id="WixUI_Common" />
+    <UI>
+      <TextStyle Id="WixUI_Font_Normal" FaceName="Microsoft YaHei UI" Size="9" />
+      <TextStyle Id="WixUI_Font_Bigger" FaceName="Microsoft YaHei UI" Size="12" />
+      <TextStyle Id="WixUI_Font_Title" FaceName="Microsoft YaHei UI" Size="9" Bold="yes" />
+      <Property Id="DefaultUIFont" Value="WixUI_Font_Normal" />
+      <Dialog Id="StartupDlg" Width="370" Height="270" Title="安装选项">
+        <Control Id="Heading" Type="Text" X="20" Y="20" Width="320" Height="30" Text="选择开机启动设置" />
+        <Control Id="Startup" Type="CheckBox" X="20" Y="70" Width="320" Height="25"
+                 Property="AUTOSTART" CheckBoxValue="1" Text="登录 Windows 时自动启动 Fn 热键 OSD" />
+        <Control Id="Next" Type="PushButton" X="236" Y="243" Width="56" Height="17" Default="yes" Text="下一步">
+          <Publish Event="NewDialog" Value="VerifyReadyDlg" />
+        </Control>
+        <Control Id="Back" Type="PushButton" X="180" Y="243" Width="56" Height="17" Text="上一步">
+          <Publish Event="NewDialog" Value="InstallDirDlg" />
+        </Control>
+        <Control Id="Cancel" Type="PushButton" X="304" Y="243" Width="56" Height="17" Cancel="yes" Text="取消">
+          <Publish Event="SpawnDialog" Value="CancelDlg" />
+        </Control>
+      </Dialog>
+      <Error Id="25001" Message="安装目录 [2] 已含文件、无法访问或指向其他位置。请选择另一个上级目录。" />
+
+      <DialogRef Id="ErrorDlg" />
+      <DialogRef Id="MsiRMFilesInUse" />
+      <DialogRef Id="FilesInUse" />
+      <DialogRef Id="DiskCostDlg" />
+      <DialogRef Id="PrepareDlg" />
+      <DialogRef Id="ProgressDlg" />
+      <DialogRef Id="ResumeDlg" />
+      <DialogRef Id="FatalError" />
+      <DialogRef Id="UserExit" />
+      <Publish Dialog="ExitDialog" Control="Finish" Event="EndDialog" Value="Return" />
+      <Publish Dialog="WelcomeDlg" Control="Next" Event="NewDialog" Value="InstallDirDlg"
+               Condition="NOT WIX_UPGRADE_DETECTED OR NOT PREVIOUSINSTALLPARENT" />
+      <Publish Dialog="WelcomeDlg" Control="Next" Event="NewDialog" Value="VerifyReadyDlg"
+               Condition="WIX_UPGRADE_DETECTED AND PREVIOUSINSTALLPARENT" Order="2" />
+      <Publish Dialog="InstallDirDlg" Control="Back" Event="NewDialog" Value="WelcomeDlg" />
+      <Publish Dialog="InstallDirDlg" Control="ChangeFolder" Property="_BrowseProperty" Value="[WIXUI_INSTALLDIR]" Order="1" />
+      <Publish Dialog="InstallDirDlg" Control="ChangeFolder" Event="SpawnDialog" Value="BrowseDlg" Order="2" />
+      <Publish Dialog="InstallDirDlg" Control="Next" Event="SetTargetPath" Value="[WIXUI_INSTALLDIR]" Order="1" />
+      <Publish Dialog="InstallDirDlg" Control="Next" Event="NewDialog" Value="StartupDlg" Order="2" />
+      <Publish Dialog="VerifyReadyDlg" Control="Back" Event="NewDialog" Value="StartupDlg"
+               Condition="NOT Installed AND (NOT WIX_UPGRADE_DETECTED OR NOT PREVIOUSINSTALLPARENT)" />
+      <Publish Dialog="VerifyReadyDlg" Control="Back" Event="NewDialog" Value="WelcomeDlg"
+               Condition="NOT Installed AND WIX_UPGRADE_DETECTED AND PREVIOUSINSTALLPARENT" Order="2" />
+      <Publish Dialog="VerifyReadyDlg" Control="Back" Event="NewDialog" Value="MaintenanceTypeDlg" Condition="Installed" />
+      <Publish Dialog="MaintenanceWelcomeDlg" Control="Next" Event="NewDialog" Value="MaintenanceTypeDlg" />
+      <Publish Dialog="MaintenanceTypeDlg" Control="Back" Event="NewDialog" Value="MaintenanceWelcomeDlg" />
+      <Publish Dialog="MaintenanceTypeDlg" Control="RepairButton" Event="NewDialog" Value="VerifyReadyDlg" />
+      <Publish Dialog="MaintenanceTypeDlg" Control="RemoveButton" Event="NewDialog" Value="VerifyReadyDlg" />
+    </UI>
+  </Package>
+</Wix>
